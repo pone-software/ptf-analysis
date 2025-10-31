@@ -8,7 +8,7 @@ Note that the pmt waveforms will be plotted as median +/- 25 and 75 percent quan
 
 import h5py as h5 
 import numpy as np
-from aux import *
+from ..aux import *
 from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec

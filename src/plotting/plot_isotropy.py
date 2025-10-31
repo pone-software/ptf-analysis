@@ -4,7 +4,7 @@ Python script to plot isotropy. Can supply multiple data files to plot multiple 
 
 import h5py as h5 
 import numpy as np
-from aux import *
+from ..aux import *
 from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
