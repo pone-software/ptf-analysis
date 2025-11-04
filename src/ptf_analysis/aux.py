@@ -8,6 +8,29 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator
 from numba import njit
 import time
+from pathlib import Path
+
+
+def get_dir_path(path_str):
+    """
+    Helper function to determine whether a given string leads to a path to a directory or file.
+    If it leads to a file, grab the parent directory it's in.
+    """
+    p = Path(path_str)
+    if p.is_file():
+        # If it’s a file, return its parent directory
+        return p.parent
+    elif p.is_dir():
+        # If it’s already a directory, keep as is
+        return p
+    else:
+        # If it doesn’t exist or is invalid
+        raise FileNotFoundError(f"Path does not exist: {path_str}")
+
+
+# location of the PMT diffuser's center in space
+pmt_y = 0.372
+pmt_z = 0.495
 
 
 @njit
@@ -236,3 +259,162 @@ def integrated_ADC_histogram(integrated_ADCs, bins = 50, file_name = None):
         plt.savefig(file_name, dpi=300, bbox_inches="tight")
     
     plt.show()
+
+
+def generate_sequence(group_centers, width=4, num_pts=9):
+    """
+    Generate sequence like [-2, -1, 0, 1, 2, -5, -4, -3, -2, -1, -8, ...].
+
+    Parameters
+    ----------
+    group_centers : array
+        Location of desired theta center point for each block
+    width : int, optional
+        Width of each block (default=4).
+    num_pts : int, optional
+        Number of points per block (implicitly defines even spacing between block elements)
+
+    Returns
+    -------
+    np.ndarray
+    """
+    seq = []
+
+    for center in group_centers:
+        group = np.linspace(center-width/2, center+width/2, num_pts)
+        seq.append(group)
+
+    return np.concatenate(seq)
+
+
+
+def find_best_theta(y_arr, z_arr, thetas, theta_centers, num_offsets, width=4):
+    """
+    Apologies for this convoluted function for just computing the best theta values. The
+    PTF has some issues in how it records theta values using the optical box's on-board 
+    phidget. For zenith (zenith and theta are intergangeable names) values below 87 degrees
+    are offset by rougly 1-2 degrees. However, when the box tilts beyond 87 degrees, the
+    phidget measures tilts that are offset by 3 or more degrees. Moreover, the the phidget
+    isn't capable of measuring beyond around 87 degrees zenith, so, for zeniths past 90,
+    the recorded values loop back and decrease from 87 degrees. Overall, I would like to
+    discuss how to best proceed with this strange behaviour, but this is what I have so far.
+
+    Parameters:
+    -----------
+      - y_arr: array of the optical box's y coordinates during the scan
+      - z_arr: array of the optical box's z coordinates during the scan
+      - thetas: array of averaged theta values measured at each scan point
+      - theta_centers: array of the desired theta values
+      - num_offsets: number of offset theta measurements computed at each theta center
+      - width: the span of the theta values that the offsets take, default 4 degrees.
+
+    Returns:
+    --------
+      - indices: array indices for theta values that best match the target theta centers
+      - thetas: array of the closest theta values to the target theta centers
+    """
+    # compute the relative y and z positions of the box from the center of the diffuser
+    rel_y = pmt_y - y_arr
+    rel_z = pmt_z - z_arr
+
+    # box records negative theta values, multiply by -1 to make them positive
+    thetas = -1*thetas
+
+    # this part computes what the exact theta offsets would be if the box measured perfectly
+    # will use this to compare to the actual imperfect measurements
+    set_theta = -1*generate_sequence(theta_centers, width=width, num_pts=num_offsets)
+
+    # # NOTE: MANUALLY REMOVING THE -5th index
+    # set_theta = np.delete(set_theta, -5)
+
+    # plt.plot(figsize=(8,6))
+    # plt.plot(np.arange(1,len(thetas)+1), thetas, "k-")
+    # plt.ylim(-3,95)
+    # plt.yticks(np.arange(0,91,10))
+    # plt.grid()
+    # # plt.savefig("scanpoint-angles-notcorrected.png", dpi=300, bbox_inches='tight')
+    # plt.show()
+
+
+    # compute the theta values that were supposed to be past 90 and correct them
+    for i, goal_theta in enumerate(set_theta):
+        theta = thetas[i]
+        if np.isnan(theta):
+            continue
+        
+        # adjust the measured thetas past 87 degrees since those were quite inaccurate
+        # NOTE: this is the part I tried to explain in the docstring of this function
+        # i simply just replace these values with the target which yields inaccurate
+        # results past 87 degrees
+        if goal_theta > 87:
+            thetas[i] = set_theta[i]
+
+    # remove any weird NaN values in the array (usually not an issue)
+    thetas = thetas[~np.isnan(thetas)]
+
+    # # ----------------------------------------------------------------------
+
+    # plt.figure(figsize=(6,4))
+    # plt.plot(np.arange(1, len(thetas)+1), thetas, "k-")
+    # plt.plot([0,180], [90,90], 'k--', lw=0.7)
+    # plt.xlabel("Scan point number", size=12)
+    # plt.ylabel(r"Phidget measured zenith [$^{\circ}$]", size=12)
+    # plt.title("Theta offset arc scans", size=12)
+    # plt.xlim(0,180)
+    # plt.ylim(-5,110)
+    # plt.grid()
+    # # plt.savefig("scanpoint-angles.png", dpi=300, bbox_inches='tight')
+    # plt.show()
+
+
+    # buh = np.arange(0,106,3)
+
+    # theta_position = []
+
+    # for duh in buh:
+    #     for i in range(5):
+    #         theta_position.append(duh)
+    
+    # theta_position = np.asarray(theta_position)
+
+    # plt.figure(figsize=(6,4))
+    # plt.plot(np.arange(1, len(thetas)+1), thetas-theta_position, "k-")
+    # plt.xlabel("Scan point number", size=12)
+    # plt.ylabel(r"$\theta_{\mathrm{phidget}} - \theta_{\mathrm{desired}}$ [$^{\circ}$]", size=12)
+    # plt.title("Theta offset differences arc scans", size=12)
+    # plt.xlim(0,180)
+    # # plt.ylim(-5,110)
+    # plt.grid()
+    # # plt.savefig("scanpoint-angle-differences.png", dpi=300, bbox_inches='tight')
+    # plt.show()
+
+    # -------------------------------------------------------------------
+
+    N = len(thetas)
+
+    # these are the groups of theta offsets per target theta that we will try to find the
+    # closest theta value
+    group_indices = np.arange(0, N, num_offsets)
+
+    indices = []
+
+    # compute the closest thetas for all of the groups except the last (as it may have less entries)
+    for i, i_g in enumerate(group_indices):
+        y = rel_y[i_g]; z = rel_z[i_g]
+
+        # compute desired theta
+        desired_theta = np.atan2(z, y)*(180/np.pi)
+
+        if i_g == group_indices[-1]:
+            theta_group = thetas[i_g:len(thetas)]
+        else:
+            theta_group = thetas[i_g:group_indices[i+1]]
+
+        # determine the closest phidget theta to the desired theta
+        differences = np.array([np.abs(theta-desired_theta) for theta in theta_group])
+
+        best_theta_i = np.argmin(differences)
+
+        indices.append(i_g + best_theta_i)
+
+    return np.asarray(indices), thetas

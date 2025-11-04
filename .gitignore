@@ -56,6 +56,7 @@ __pycache__/
 # directories containing large hdf5files and rootfiles
 hdf5_files/
 root_files/
+test/
 
 
 # OS-specific files

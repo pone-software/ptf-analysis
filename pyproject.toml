@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptf_analysis"
+version = "0.1.0"
+description = "python package for analyzing data from TRIUMF's photosensor test facility (PTF) and quickly making paper-ready plots."
+authors = [{ name = "Randon Hall" }, { name = "Thomas Glukler"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "numba"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+root2hdf5 = "ptf_analysis.root2hdf5:main"
+isotropy = "ptf_analysis.isotropy.main:main"

@@ -1,0 +1,7 @@
+Still to-do:
+------------
+    - Include more customization with plot labels, colors, fontsizes, etc. Thinking of doing this by 
+      including an additional yaml file of simple plot customization options
+    - Have a better method for addressing theta values at thetas beyond 87 degrees
+    - Ask Felix for some example G4 files to make a script to produce a paper plot for comparison
+      between PTF data and the simulations

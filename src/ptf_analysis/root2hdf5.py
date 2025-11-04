@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import uproot
 import h5py as h5
-from aux import correct_wf
+from .aux import correct_wf
 import argparse
 import os
 
@@ -111,7 +111,7 @@ def root_to_hdf5(root_file_path, hdf5_file_path, low = 20, high = 50):
 def main():
     parser = argparse.ArgumentParser(description="Converts raw PTF root files into concise hdf5 files.")
 
-    parser.add_argument('-fp', '--filepath', 
+    parser.add_argument('-f', '--filepath', 
                         type=str, 
                         required=True, 
                         help='Path from current directory to either a directory containing all of the '
